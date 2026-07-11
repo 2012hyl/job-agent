@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+  <title>简历生成器 · AI Agent</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif}
+    body{background:linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);min-height:100vh;display:flex;justify-content:center;padding:20px}
+    .container{width:100%;max-width:800px;display:flex;flex-direction:column;gap:20px}
+    .header{text-align:center;padding:30px 0 10px}
+    .header h1{color:#fff;font-size:28px;font-weight:700}
+    .header p{color:#a0a0b8;font-size:14px;margin-top:6px}
+    .header .emoji{font-size:40px;display:block;margin-bottom:8px}
+    .usage-badge{display:inline-block;background:rgba(255,255,255,0.1);padding:6px 14px;border-radius:20px;color:#f39c12;font-size:12px;margin-top:8px}
+    .card{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:24px;backdrop-filter:blur(10px)}
+    .card-title{color:#e0e0e0;font-size:16px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .form-group{display:flex;flex-direction:column;gap:6px}
+    .form-group.full{grid-column:1/-1}
+    .form-group label{color:#b0b0c0;font-size:13px;font-weight:500}
+    .form-group input,.form-group select,.form-group textarea{width:100%;padding:12px 14px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#fff;font-size:14px;outline:none;transition:all 0.2s}
+    .form-group textarea{min-height:100px;resize:vertical}
+    .form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:#4a9eff;background:rgba(255,255,255,0.1)}
+    .form-group select option{background:#1a1a2e;color:#fff}
+    .btn-primary{width:100%;padding:14px;background:linear-gradient(135deg, #4a9eff, #6c5ce7);border:none;border-radius:12px;color:#fff;font-size:16px;font-weight:600;cursor:pointer;transition:all 0.3s}
+    .btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(74,158,255,0.3)}
+    .btn-primary:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+    .btn-secondary{width:100%;padding:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.2);border-radius:12px;color:#e0e0e0;font-size:14px;font-weight:500;cursor:pointer;transition:all 0.2s;margin-top:10px}
+    .btn-secondary:hover{background:rgba(255,255,255,0.12)}
+    .loading{display:none;text-align:center;padding:40px}
+    .loading.active{display:block}
+    .spinner{width:40px;height:40px;border:3px solid rgba(255,255,255,0.1);border-top-color:#4a9eff;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .loading-text{color:#a0a0b8;font-size:14px}
+    .result{display:none}
+    .result.active{display:block}
+    .resume-preview{background:#fff;color:#333;padding:40px;border-radius:8px;line-height:1.8;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,0.3)}
+    .resume-preview h1{font-size:24px;text-align:center;margin-bottom:4px;color:#1a1a2e}
+    .resume-preview h2{font-size:16px;color:#4a9eff;border-bottom:2px solid #4a9eff;padding-bottom:4px;margin:16px 0 8px}
+    .resume-preview h3{font-size:14px;color:#333;margin:8px 0 4px}
+    .resume-preview ul{padding-left:20px;margin:4px 0}
+    .resume-preview li{margin:2px 0}
+    .tips{color:#888;font-size:12px;text-align:center;margin-top:8px}
+    @media(max-width:600px){.form-grid{grid-template-columns:1fr}.header h1{font-size:22px}}
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <span class="emoji">📄</span>
+    <h1>AI 简历生成器</h1>
+    <p>输入信息 · AI 自动生成专业简历 · 支持下载 PDF</p>
+    <div class="usage-badge" id="usageBadge">🆓 今日剩余：3次</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">👤 基本信息</div>
+    <div class="form-grid">
+      <div class="form-group"><label>姓名</label><input type="text" id="name" placeholder="如：张三"></div>
+      <div class="form-group"><label>求职意向</label><input type="text" id="jobTarget" placeholder="如：前端开发工程师"></div>
+      <div class="form-group"><label>手机</label><input type="text" id="phone" placeholder="如：138****1234"></div>
+      <div class="form-group"><label>邮箱</label><input type="text" id="email" placeholder="如：zhangsan@example.com"></div>
+      <div class="form-group"><label>学历</label><select id="education"><option value="">请选择</option><option value="博士">博士</option><option value="硕士">硕士</option><option value="本科">本科</option><option value="大专">大专</option><option value="高中">高中</option></select></div>
+      <div class="form-group"><label>毕业院校</label><input type="text" id="school" placeholder="如：清华大学"></div>
+      <div class="form-group"><label>专业</label><input type="text" id="major" placeholder="如：计算机科学与技术"></div>
+      <div class="form-group"><label>毕业年份</label><input type="text" id="gradYear" placeholder="如：2025"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">💼 经历与技能</div>
+    <div class="form-grid">
+      <div class="form-group full"><label>工作/实习经历</label><textarea id="workExp" placeholder="如：&#10;2024.06-2024.09 字节跳动 前端实习生"></textarea></div>
+      <div class="form-group full"><label>项目经历</label><textarea id="projects" placeholder="如：&#10;校园二手交易平台 独立开发"></textarea></div>
+      <div class="form-group full"><label>技能特长（逗号分隔）</label><input type="text" id="skills" placeholder="如：Python, JavaScript, React"></div>
+      <div class="form-group full"><label>其他亮点（选填）</label><textarea id="highlights" placeholder="如：&#10;CET-6 580分"></textarea></div>
+    </div>
+    <button class="btn-primary" id="genBtn" onclick="generateResume()">✨ 生成简历</button>
+  </div>
+
+  <div class="loading" id="loading"><div class="spinner"></div><div class="loading-text">AI 正在为你生成专业简历……</div></div>
+
+  <div class="result" id="result">
+    <div class="card" style="margin-bottom:0">
+      <div class="card-title" style="justify-content:space-between"><span>📝 简历预览</span></div>
+      <div class="resume-preview" id="resumeContent"></div>
+      <button class="btn-secondary" onclick="downloadPDF()">📄 下载 PDF</button>
+      <button class="btn-secondary" onclick="showPayPage()">💎 付费升级（无限次）</button>
+      <button class="btn-secondary" onclick="window.location.reload()">🔄 重新生成</button>
+    </div>
+  </div>
+
+  <p class="tips">💡 免费每天3次 · 付费无限次 · 激活码在云端</p>
+</div>
+
+<script>
+const API_URL = '/api/proxy';
+const FREE_LIMIT = 3;
+const STORAGE_KEY = 'resume_data';
+
+function getData(){
+  const today = new Date().toLocaleDateString();
+  let d = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+  if(d.date !== today) d = { date: today, count: 0, paid: d.paid || false };
+  return d;
+}
+function saveData(d){ localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
+function updateBadge(){
+  const d = getData();
+  const b = document.getElementById('usageBadge');
+  if(d.paid){ b.textContent = '💎 已付费 · 无限次'; b.style.color = '#2ecc71'; }
+  else {
+    const r = FREE_LIMIT - d.count;
+    b.textContent = r > 0 ? `🆓 今日剩余：${r}次` : '🆓 今日次数已用完';
+    if(r <= 0) b.style.color = '#e74c3c';
+  }
+}
+function checkQuota(){ const d = getData(); return d.paid || d.count < FREE_LIMIT; }
+function useQuota(){ const d = getData(); if(!d.paid){ d.count++; saveData(d); } updateBadge(); }
+
+async function activatePaid(code){
+  const c = code.toUpperCase().trim();
+  if(!c){ alert('请输入激活码'); return false; }
+  try {
+    const res = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type: 'activate', code: c }) });
+    const data = await res.json();
+    if(data.valid){
+      const used = JSON.parse(localStorage.getItem('used_codes') || '[]');
+      if(used.includes(c)){ alert('❌ 此激活码已被使用'); return false; }
+      used.push(c); localStorage.setItem('used_codes', JSON.stringify(used));
+      const d = getData(); d.paid = true; saveData(d); updateBadge();
+      alert('✅ 激活成功！无限次使用已解锁');
+      return true;
+    } else { alert('❌ ' + data.message); return false; }
+  } catch(e){ alert('网络错误，请重试'); return false; }
+}
+
+async function generateResume(){
+  const name = document.getElementById('name').value.trim();
+  const jobTarget = document.getElementById('jobTarget').value.trim();
+  const phone = document.getElementById('phone').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const education = document.getElementById('education').value;
+  const school = document.getElementById('school').value.trim();
+  const major = document.getElementById('major').value.trim();
+  const gradYear = document.getElementById('gradYear').value.trim();
+  const workExp = document.getElementById('workExp').value.trim();
+  const projects = document.getElementById('projects').value.trim();
+  const skills = document.getElementById('skills').value.trim();
+  const highlights = document.getElementById('highlights').value.trim();
+
+  if(!name || !jobTarget || !phone || !email){ alert('请填写基本信息'); return; }
+  if(!education || !school || !major){ alert('请填写教育背景'); return; }
+  if(!checkQuota()){ alert('今日免费次数已用完，请付费升级'); showPayPage(); return; }
+
+  const btn = document.getElementById('genBtn'), loading = document.getElementById('loading'), result = document.getElementById('result');
+  btn.disabled = true; btn.textContent = '生成中……'; result.classList.remove('active'); loading.classList.add('active');
+
+  try {
+    const res = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ options: { name, jobTarget, phone, email, education, school, major, gradYear, workExp, projects, skills, highlights } }) });
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    document.getElementById('resumeContent').innerHTML = data.resume;
+    useQuota(); loading.classList.remove('active'); result.classList.add('active');
+    result.scrollIntoView({ behavior:'smooth' });
+  } catch(e){ loading.classList.remove('active'); alert('生成失败：' + (e.message || '网络错误')); }
+  finally { btn.disabled = false; btn.textContent = '✨ 生成简历'; }
+}
+
+function downloadPDF(){
+  const el = document.getElementById('resumeContent');
+  html2pdf().set({ margin:[8,8,8,8], filename:'简历_'+(document.getElementById('name').value||'未命名')+'.pdf', image:{type:'jpeg',quality:0.98}, html2canvas:{scale:2}, jsPDF:{unit:'mm',format:'a4',orientation:'portrait'} }).from(el).save();
+}
+
+function showPayPage(){
+  const div = document.createElement('div');
+  div.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center';
+  div.innerHTML = `
+    <div style="background:#1a1a2e;border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:24px;width:90%;max-width:360px;text-align:center;position:relative">
+      <button style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:20px;cursor:pointer;color:#fff" onclick="this.parentElement.parentElement.remove()">✕</button>
+      <h3 style="color:#fff;margin-bottom:8px">💎 付费升级</h3>
+      <p style="color:#f39c12;font-size:22px;font-weight:700">￥9.90 / 永久</p>
+      <p style="color:#a0a0b8;font-size:13px;margin:6px 0">无限次AI简历生成 + PDF下载</p>
+      <div style="display:flex;gap:12px;justify-content:center;margin:12px 0">
+        <div style="text-align:center"><p style="color:#aaa;font-size:11px">🔵 支付宝</p><img src="https://i.ibb.co/0yFnTKS0/IMG-7071.jpg" style="width:130px;height:130px;object-fit:contain;background:#fff;border-radius:8px;padding:4px"></div>
+        <div style="text-align:center"><p style="color:#aaa;font-size:11px">🟢 微信</p><img src="https://i.ibb.co/6KHXJx8/IMG-7069.jpg" style="width:130px;height:130px;object-fit:contain;background:#fff;border-radius:8px;padding:4px"></div>
+      </div>
+      <p style="color:#e74c3c;font-size:12px;margin:6px 0">付款后截屏发给 wxid_xccoegiluvnr12</p>
+      <p style="color:#a0a0b8;font-size:12px;margin:8px 0">已有激活码？</p>
+      <input type="text" id="activateCode" placeholder="输入激活码" style="width:100%;padding:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:14px;text-align:center;outline:none;margin-bottom:8px">
+      <button class="btn-secondary" style="width:100%" onclick="const r=activatePaid(document.getElementById('activateCode').value);if(r)this.parentElement.parentElement.remove();">🔑 激活</button>
+      <button class="btn-secondary" style="width:100%;margin-top:6px" onclick="this.parentElement.parentElement.remove()">关闭</button>
+    </div>`;
+  document.body.appendChild(div);
+}
+
+updateBadge();
+document.addEventListener('keypress', e => { if(e.key==='Enter' && e.ctrlKey){ e.preventDefault(); generateResume(); } });
+</script>
+</body>
+</html>
