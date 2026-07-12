@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-  <title>简历生成器 · AI Agent v2.2</title>
+  <title>简历生成器 · AI Agent v2.3</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif}
@@ -92,7 +92,7 @@
     </div>
   </div>
 
-  <p class="tips">💡 免费每天3次 · 付费无限次 · v2.2<br>⚠️ 虚拟商品一经售出概不退款<br>📬 超过24小时未收到激活码，请B站私信「温柔陪伴」</p>
+  <p class="tips">💡 免费每天3次 · 付费无限次 · v2.3<br>⚠️ 虚拟商品一经售出概不退款<br>📬 超过24小时未收到激活码，请B站私信「温柔陪伴」</p>
 </div>
 
 <script>
@@ -242,8 +242,8 @@ async function generateResume(){
     const skills = document.getElementById('skills').value.trim();
     const highlights = document.getElementById('highlights').value.trim();
 
-    if(gradYear && !/^\d{4}$/.test(gradYear)){ alert('毕业年份请输入4位数字'); loading.classList.remove('active'); btn.disabled = false; btn.textContent = '生成简历'; return; }
-    if(phone && !/^\d{3,15}$/.test(phone.replace(/[\s\-()]/g,''))){ alert('手机号格式不正确'); loading.classList.remove('active'); btn.disabled = false; btn.textContent = '生成简历'; return; }
+    if(gradYear && !/^\d{4}$/.test(gradYear)){ alert('毕业年份请输入4位数字'); loading.classList.remove('active'); btn.disabled = false; btn.textContent = '✨ 生成简历'; return; }
+    if(phone && !/^\d{3,15}$/.test(phone.replace(/[\s\-()]/g,''))){ alert('手机号格式不正确'); loading.classList.remove('active'); btn.disabled = false; btn.textContent = '✨ 生成简历'; return; }
 
     const eduText = `${education} | ${school} | ${major} | ${gradYear}年毕业`;
 
@@ -259,7 +259,7 @@ async function generateResume(){
     const userMessage = `请为${name}生成一份求职【${jobTarget}】的专业简历。联系方式：${phone || ''} | ${email}`;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
+    const timeout = setTimeout(() => controller.abort(), 30000);
 
     const res = await fetch(API_URL, {
       method: 'POST',
@@ -272,23 +272,52 @@ async function generateResume(){
         ],
         temperature: 0.5,
         max_tokens: 2000,
-        stream: false
+        stream: true
       }),
       signal: controller.signal
     });
     clearTimeout(timeout);
 
-    const data = await res.json();
-    if(data.error) throw new Error(data.error);
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || '服务器返回错误 ' + res.status);
+    }
 
+    // 流式接收
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let fullContent = '';
+    let buf = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop() || '';
+      for (const line of lines) {
+        const t = line.trim();
+        if (!t || t === 'data: [DONE]') continue;
+        if (!t.startsWith('data: ')) continue;
+        try {
+          const d = JSON.parse(t.slice(6));
+          const delta = d.choices?.[0]?.delta?.content;
+          if (delta) fullContent += delta;
+        } catch (e) {}
+      }
+    }
+
+    if (!fullContent) throw new Error('AI返回内容为空，请重试');
+
+    // XSS清洗
     const resumeDiv = document.getElementById('resumeContent');
     resumeDiv.innerHTML = '';
     const temp = document.createElement('div');
-    temp.innerHTML = data.content;
+    temp.innerHTML = fullContent;
     temp.querySelectorAll('script').forEach(s => s.remove());
     temp.querySelectorAll('*').forEach(el => {
       Array.from(el.attributes).forEach(attr => {
-        if(attr.name.startsWith('on')) el.removeAttribute(attr.name);
+        if (attr.name.startsWith('on')) el.removeAttribute(attr.name);
       });
     });
     resumeDiv.innerHTML = temp.innerHTML;
@@ -299,11 +328,15 @@ async function generateResume(){
     loading.classList.remove('active');
     if(e.name === 'AbortError'){
       alert('请求超时，AI接口响应较慢，请稍后再试');
+    } else if(e.message.includes('服务器返回错误')) {
+      alert('服务器错误，请稍后再试。如多次失败请截图联系开发者。');
+    } else if(e.message.includes('AI返回内容为空')) {
+      alert('AI未能生成简历，请尝试修改输入内容后重试。');
     } else {
       alert('生成失败，请检查网络后重试。如多次失败请截图联系开发者。');
     }
   }
-  finally { btn.disabled = false; btn.textContent = '生成简历'; }
+  finally { btn.disabled = false; btn.textContent = '✨ 生成简历'; }
 }
 
 function downloadPDF(){
