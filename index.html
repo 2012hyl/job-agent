@@ -60,7 +60,7 @@
     <div class="form-grid">
       <div class="form-group"><label>姓名</label><input type="text" id="name" placeholder="如：张三"></div>
       <div class="form-group"><label>求职意向</label><input type="text" id="jobTarget" placeholder="如：前端开发工程师"></div>
-      <div class="form-group"><label>手机</label><input type="text" id="phone" placeholder="如：138****1234"></div>
+      <div class="form-group"><label>手机（选填）</label><input type="text" id="phone" placeholder="如：138****1234"></div>
       <div class="form-group"><label>邮箱</label><input type="text" id="email" placeholder="如：zhangsan@example.com"></div>
       <div class="form-group"><label>学历</label><select id="education"><option value="">请选择</option><option value="博士">博士</option><option value="硕士">硕士</option><option value="本科">本科</option><option value="大专">大专</option><option value="高中">高中</option></select></div>
       <div class="form-group"><label>毕业院校</label><input type="text" id="school" placeholder="如：清华大学"></div>
@@ -92,7 +92,7 @@
     </div>
   </div>
 
-  <p class="tips">💡 免费每天3次 · 付费无限次 · 激活码在云端</p>
+  <p class="tips">💡 免费每天3次 · 付费无限次 · 激活码在云端<br>⚠️ 虚拟商品一经售出概不退款，付款前请确认</p>
 </div>
 
 <script>
@@ -120,45 +120,76 @@ function updateBadge(){
 function checkQuota(){ const d = getData(); return d.paid || d.count < FREE_LIMIT; }
 function useQuota(){ const d = getData(); if(!d.paid){ d.count++; saveData(d); } updateBadge(); }
 
-async function activatePaid(code){
-  const c = code.toUpperCase().trim();
-  if(!c){ alert('请输入激活码'); return false; }
+let pendingCode = '';
+
+async function activatePaid(code, answer){
+  const c = (code || '').toUpperCase().trim();
+  const a = (answer || '').trim();
   try {
-    const res = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type: 'activate', code: c }) });
+    const res = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type: 'activate', code: c, answer: a }) });
     const data = await res.json();
     if(data.valid){
       const used = JSON.parse(localStorage.getItem('used_codes') || '[]');
       if(used.includes(c)){ alert('❌ 此激活码已被使用'); return false; }
       used.push(c); localStorage.setItem('used_codes', JSON.stringify(used));
-      const d = getData(); d.paid = true; saveData(d); updateBadge();
+      const d = getData(); d.paid = true; d.activationCode = c; saveData(d); updateBadge();
       alert('✅ 激活成功！无限次使用已解锁');
       return true;
-    } else { alert('❌ ' + data.message); return false; }
+    }
+    if(data.step === 2){ pendingCode = data.code; showVerifyQuestion(); return false; }
+    alert('❌ ' + (data.message || '验证失败')); return false;
   } catch(e){ alert('网络错误，请重试'); return false; }
+}
+
+function showVerifyQuestion(){
+  const div = document.createElement('div');
+  div.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);z-index:10002;display:flex;align-items:center;justify-content:center';
+  div.innerHTML = `
+    <div style="background:#1a1a2e;border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:24px;width:90%;max-width:360px;text-align:center;position:relative">
+      <button style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:20px;cursor:pointer;color:#fff" onclick="this.parentElement.parentElement.remove()">✕</button>
+      <h3 style="color:#fff;margin-bottom:12px">🔐 验证问题</h3>
+      <p style="color:#a0a0b8;font-size:13px;margin-bottom:4px">请回答以下问题来确认你是真人：</p>
+      <p style="color:#f39c12;font-size:16px;font-weight:600;margin:8px 0">开发者的AI陪伴产品叫什么名字？</p>
+      <p style="color:#888;font-size:11px;margin-bottom:12px">提示：四个字，在付费页面顶部写着</p>
+      <input type="text" id="verifyAnswer" placeholder="输入答案" style="width:100%;padding:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:14px;text-align:center;outline:none;margin-bottom:8px">
+      <button class="btn-secondary" style="width:100%" onclick="handleVerifyAnswer(this)">确认</button>
+      <button class="btn-secondary" style="width:100%;margin-top:4px" onclick="this.parentElement.parentElement.remove()">取消</button>
+    </div>`;
+  document.body.appendChild(div);
+}
+
+async function handleVerifyAnswer(btn){
+  const answer = document.getElementById('verifyAnswer').value.trim();
+  if(!answer){ alert('请输入答案'); return; }
+  btn.disabled = true; btn.textContent = '验证中……';
+  const result = await activatePaid(pendingCode, answer);
+  if(result){ document.querySelectorAll('[style*="z-index:10001"], [style*="z-index:10002"]').forEach(el => el.remove()); }
+  else { btn.disabled = false; btn.textContent = '确认'; }
 }
 
 async function generateResume(){
   const name = document.getElementById('name').value.trim();
   const jobTarget = document.getElementById('jobTarget').value.trim();
-  const phone = document.getElementById('phone').value.trim();
   const email = document.getElementById('email').value.trim();
   const education = document.getElementById('education').value;
   const school = document.getElementById('school').value.trim();
   const major = document.getElementById('major').value.trim();
-  const gradYear = document.getElementById('gradYear').value.trim();
-  const workExp = document.getElementById('workExp').value.trim();
-  const projects = document.getElementById('projects').value.trim();
-  const skills = document.getElementById('skills').value.trim();
-  const highlights = document.getElementById('highlights').value.trim();
 
-  if(!name || !jobTarget || !phone || !email){ alert('请填写基本信息'); return; }
-  if(!education || !school || !major){ alert('请填写教育背景'); return; }
+  if(!name || !jobTarget || !email){ alert('请填写姓名、求职意向和邮箱'); return; }
+  if(!education || !school || !major){ alert('请填写完整的教育背景'); return; }
   if(!checkQuota()){ alert('今日免费次数已用完，请付费升级'); showPayPage(); return; }
 
   const btn = document.getElementById('genBtn'), loading = document.getElementById('loading'), result = document.getElementById('result');
   btn.disabled = true; btn.textContent = '生成中……'; result.classList.remove('active'); loading.classList.add('active');
 
   try {
+    const phone = document.getElementById('phone').value.trim();
+    const gradYear = document.getElementById('gradYear').value.trim();
+    const workExp = document.getElementById('workExp').value.trim();
+    const projects = document.getElementById('projects').value.trim();
+    const skills = document.getElementById('skills').value.trim();
+    const highlights = document.getElementById('highlights').value.trim();
+
     const res = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ options: { name, jobTarget, phone, email, education, school, major, gradYear, workExp, projects, skills, highlights } }) });
     const data = await res.json();
     if(data.error) throw new Error(data.error);
@@ -182,18 +213,46 @@ function showPayPage(){
       <button style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:20px;cursor:pointer;color:#fff" onclick="this.parentElement.parentElement.remove()">✕</button>
       <h3 style="color:#fff;margin-bottom:8px">💎 付费升级</h3>
       <p style="color:#f39c12;font-size:22px;font-weight:700">￥9.90 / 永久</p>
-      <p style="color:#a0a0b8;font-size:13px;margin:6px 0">无限次AI简历生成 + PDF下载</p>
+      <p style="color:#a0a0b8;font-size:13px;margin:6px 0">解锁无限次AI简历生成 + PDF下载</p>
       <div style="display:flex;gap:12px;justify-content:center;margin:12px 0">
         <div style="text-align:center"><p style="color:#aaa;font-size:11px">🔵 支付宝</p><img src="https://i.ibb.co/0yFnTKS0/IMG-7071.jpg" style="width:130px;height:130px;object-fit:contain;background:#fff;border-radius:8px;padding:4px"></div>
         <div style="text-align:center"><p style="color:#aaa;font-size:11px">🟢 微信</p><img src="https://i.ibb.co/6KHXJx8/IMG-7069.jpg" style="width:130px;height:130px;object-fit:contain;background:#fff;border-radius:8px;padding:4px"></div>
       </div>
-      <p style="color:#e74c3c;font-size:12px;margin:6px 0">付款后截屏发给 wxid_xccoegiluvnr12</p>
+      <p style="color:#e74c3c;font-size:11px;margin:4px 0">⚠️ 虚拟商品一经售出概不退款</p>
+      <p style="color:#fff;font-size:13px;margin:8px 0">付款后截屏发给 <span style="color:#2ecc71">wxid_xccoegiluvnr12</span> 获取激活码</p>
       <p style="color:#a0a0b8;font-size:12px;margin:8px 0">已有激活码？</p>
       <input type="text" id="activateCode" placeholder="输入激活码" style="width:100%;padding:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:14px;text-align:center;outline:none;margin-bottom:8px">
-      <button class="btn-secondary" style="width:100%" onclick="const r=activatePaid(document.getElementById('activateCode').value);if(r)this.parentElement.parentElement.remove();">🔑 激活</button>
-      <button class="btn-secondary" style="width:100%;margin-top:6px" onclick="this.parentElement.parentElement.remove()">关闭</button>
+      <button class="btn-secondary" style="width:100%" onclick="activatePaid(document.getElementById('activateCode').value,'')">🔑 激活</button>
+      <button class="btn-secondary" style="width:100%;margin-top:4px" onclick="exportActivation()">📤 导出激活</button>
+      <button class="btn-secondary" style="width:100%;margin-top:4px" onclick="importActivation()">📥 导入激活</button>
+      <button class="btn-secondary" style="width:100%;margin-top:4px" onclick="this.parentElement.parentElement.remove()">关闭</button>
     </div>`;
   document.body.appendChild(div);
+}
+
+function exportActivation(){
+  const d = getData();
+  if(!d.paid){ alert('你还没有激活付费权限'); return; }
+  const blob = new Blob([JSON.stringify({ paid:true, code:d.activationCode, time:Date.now() })], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = '简历生成器_激活备份.json'; a.click();
+  alert('✅ 备份文件有效期10分钟，请尽快导入新设备。');
+}
+
+function importActivation(){
+  const input = document.createElement('input'); input.type = 'file'; input.accept = '.json';
+  input.onchange = e => {
+    const f = e.target.files[0], r = new FileReader();
+    r.onload = ev => {
+      try {
+        const d = JSON.parse(ev.target.result);
+        if(d.time && Date.now()-d.time > 600000){ alert('❌ 备份文件已过期（超10分钟），请重新导出'); return; }
+        if(d.paid){ const u = getData(); u.paid = true; u.activationCode = d.code || ''; saveData(u); updateBadge(); alert('✅ 已导入！'); }
+      } catch(e){ alert('❌ 文件格式不对'); }
+    };
+    r.readAsText(f);
+  };
+  input.click();
 }
 
 updateBadge();
