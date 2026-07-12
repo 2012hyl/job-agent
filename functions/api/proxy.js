@@ -1,5 +1,5 @@
 // functions/api/proxy.js
-// job-agent 专用后端：AI简历生成 + 激活码验证
+// job-agent 专用后端：AI简历生成 + 激活码两步验证
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -29,11 +29,13 @@ export async function onRequest(context) {
     });
   }
 
-  // ========== 激活码验证 ==========
+  // ========== 激活码两步验证 ==========
   if (body.type === 'activate') {
     const code = (body.code || '').toUpperCase().trim();
+    const answer = (body.answer || '').trim();
+
     if (!code) {
-      return new Response(JSON.stringify({ valid: false, message: '请输入激活码' }), {
+      return new Response(JSON.stringify({ valid: false, message: '请输入激活码', step: 1 }), {
         status: 200,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
       });
@@ -42,23 +44,38 @@ export async function onRequest(context) {
     const validCodesStr = env.ACTIVATION_CODES || '';
     const validCodes = validCodesStr.split(',').map(c => c.trim().toUpperCase());
 
-    if (validCodes.includes(code)) {
-      return new Response(JSON.stringify({ valid: true, message: '激活成功' }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      });
-    } else {
-      return new Response(JSON.stringify({ valid: false, message: '激活码无效' }), {
+    if (!validCodes.includes(code)) {
+      return new Response(JSON.stringify({ valid: false, message: '激活码无效，请检查后重试', step: 1 }), {
         status: 200,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
       });
     }
+
+    if (!answer) {
+      return new Response(JSON.stringify({ valid: false, message: '请回答验证问题', step: 2, code: code }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      });
+    }
+
+    const correctAnswer = env.VERIFY_ANSWER || '温柔陪伴';
+    if (answer !== correctAnswer) {
+      return new Response(JSON.stringify({ valid: false, message: '验证答案错误，请重试', step: 2, code: code }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      });
+    }
+
+    return new Response(JSON.stringify({ valid: true, message: '激活成功', step: 3 }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    });
   }
 
   // ========== AI生成简历 ==========
   const options = body.options;
   if (!options || !options.name || !options.jobTarget) {
-    return new Response(JSON.stringify({ error: '缺少必要参数' }), {
+    return new Response(JSON.stringify({ error: '缺少必要参数（姓名、求职意向）' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
     });
