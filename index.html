@@ -41,14 +41,15 @@
     .result-panel ul{padding-left:20px;margin:8px 0}
     .result-panel li{margin:4px 0}
     .result-panel .tag{display:inline-block;background:rgba(74,158,255,0.2);color:#4a9eff;padding:4px 10px;border-radius:12px;font-size:12px;margin:2px 4px}
-    .resume-preview{background:#fff;color:#333;padding:40px;border-radius:8px;line-height:1.8;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,0.3)}
+    .resume-preview{background:#fff;color:#222;padding:40px;border-radius:8px;line-height:1.8;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,0.3)}
     .resume-preview h1{font-size:24px;text-align:center;margin-bottom:4px;color:#1a1a2e}
-    .resume-preview h2{font-size:16px;color:#4a9eff;border-bottom:2px solid #4a9eff;padding-bottom:4px;margin:16px 0 8px}
-    .resume-preview h3{font-size:14px;color:#333;margin:8px 0 4px}
+    .resume-preview h2{font-size:16px;color:#1a5276;border-bottom:2px solid #1a5276;padding-bottom:4px;margin:16px 0 8px}
+    .resume-preview h3{font-size:14px;color:#1a1a2e;margin:8px 0 4px}
+    .resume-preview p{color:#333;margin:4px 0}
     .resume-preview ul{padding-left:20px;margin:4px 0}
-    .resume-preview li{margin:2px 0}
+    .resume-preview li{color:#333;margin:2px 0}
+    .resume-preview .contact-info{text-align:center;color:#555;font-size:13px;margin-bottom:16px}
     .resume-preview .section{margin-bottom:12px}
-    .resume-preview .contact-info{text-align:center;color:#666;font-size:13px;margin-bottom:16px}
     .tips{color:#888;font-size:12px;text-align:center;margin-top:8px}
     @media(max-width:600px){.form-grid{grid-template-columns:1fr}.header h1{font-size:22px}.resume-preview{padding:20px}}
   </style>
@@ -89,12 +90,10 @@
   <div class="loading" id="loading"><div class="spinner"></div><div class="loading-text" id="loadingText">AI 正在分析你的求职方向……</div></div>
 
   <div class="result" id="result">
-    <!-- 求职建议区 -->
     <div class="result-panel" id="advicePanel">
       <h2>📊 求职分析与建议</h2>
       <div id="adviceContent"></div>
     </div>
-    <!-- 简历预览区 -->
     <div class="card" style="margin-bottom:0">
       <div class="card-title" style="justify-content:space-between"><span>📝 完整简历</span></div>
       <div class="resume-preview" id="resumeContent"></div>
@@ -108,12 +107,6 @@
 
 <script>
 const API_URL = 'https://51ai-1.pages.dev/api/proxy';
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
 
 async function generateResume(){
   const name = document.getElementById('name').value.trim();
@@ -150,28 +143,22 @@ async function generateResume(){
 技能：${skills || '无'}
 其他亮点：${highlights || '无'}`;
 
-    // ===== 第一阶段：生成求职建议 =====
     document.getElementById('loadingText').textContent = 'AI 正在分析你的求职方向……';
-    const advicePrompt = `你是资深职业规划师和HR总监。请根据以下求职者信息，生成一份详细的求职分析与建议报告，帮助他明确求职方向、优化简历策略、提升竞争力。
+    const advicePrompt = `你是资深职业规划师和HR总监。请根据以下求职者信息，生成一份详细的求职分析与建议报告。
 
 ${userProfile}
 
 请输出以下内容（使用HTML格式，用<div>包裹，不要DO<!DOCTYPE和<body>标签）：
 
-1. 🎯 求职方向定位
-分析该求职者在目标岗位上的优势和短板，建议1-2个最适合的细分方向。
+🎯 求职方向定位：分析该求职者在目标岗位上的优势和短板，建议1-2个最适合的细分方向。
 
-2. 📈 竞争力分析
-根据ta的教育背景、经历、技能，评估在当前校招/社招市场中的竞争力水平（初级/中级/有潜力），并说明理由。
+📈 竞争力分析：根据ta的教育背景、经历、技能，评估在当前校招/社招市场中的竞争力水平，并说明理由。
 
-3. 💡 简历优化重点
-根据STAR法则，指出ta的经历中哪些点值得重点展开、哪些需要弱化。给出具体的改写建议（例如"在XX经历中，建议突出你做的具体动作和量化结果"）。
+💡 简历优化重点：根据STAR法则，指出ta的经历中哪些点值得重点展开、哪些需要弱化。给出具体的改写建议。
 
-4. 🏢 推荐投递方向
-根据ta的背景和求职意向，推荐3-5类适合的公司或岗位类型（例如：大厂核心部门、独角兽公司、国企技术岗等），并简要说明推荐理由。
+🏢 推荐投递方向：根据ta的背景，推荐3-5类适合的公司或岗位类型，并简要说明理由。
 
-5. ⚠️ 面试准备提醒
-根据ta的背景，预测面试官可能会挑战的3个问题，并给出应对思路。
+⚠️ 面试准备提醒：预测面试官可能会挑战的3个问题，并给出应对思路。
 
 请用口语化、直接有用的方式写，不要空洞的套话。每个建议都要具体、可操作。`;
 
@@ -194,7 +181,6 @@ ${userProfile}
     const adviceContent = await readStream(adviceRes);
     document.getElementById('adviceContent').innerHTML = adviceContent;
 
-    // ===== 第二阶段：生成完整简历 =====
     document.getElementById('loadingText').textContent = 'AI 正在生成专业简历……';
     const resumePrompt = `你是资深HR和简历撰写专家。请根据以下求职者信息，生成一份完整、专业、结构清晰的HTML格式简历。
 
@@ -211,22 +197,10 @@ ${userProfile}
 【格式要求】
 - 使用HTML标签，不要用Markdown
 - 整体风格专业、简洁，适合A4纸打印
-- 配色以深蓝/黑色为主，白色背景
+- 配色以深蓝/黑色为主，白色背景，所有文字必须是深色（#222或#333），确保清晰可读
 - 不要写"优秀""良好"等空洞形容词，用具体数据代替
 - 如果某项内容为空，直接跳过该板块
-- 输出完整HTML（从<div>开始），不要DO<!DOCTYPE和<body>标签
-
-【参考范例】
-生成的简历应该像这样（结构参考）：
-<div style="max-width:800px;margin:0 auto;font-family:...">
-  <div style="text-align:center">
-    <h1>张三</h1>
-    <p>求职意向：前端开发工程师 | 138xxxx | zhangsan@xxx.com</p>
-  </div>
-  <h2>教育背景</h2>
-  <p>...</p>
-  ...
-</div>`;
+- 输出完整HTML（从<div>开始），不要DO<!DOCTYPE和<body>标签`;
 
     const resumeRes = await fetch(API_URL, {
       method: 'POST',
@@ -246,7 +220,6 @@ ${userProfile}
     if (!resumeRes.ok) throw new Error('简历生成失败');
     const resumeContent = await readStream(resumeRes);
 
-    // XSS清洗
     const resumeDiv = document.getElementById('resumeContent');
     resumeDiv.innerHTML = '';
     const temp = document.createElement('div');
