@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-  <title>简历生成器 · AI Agent v2.3</title>
+  <title>AI 简历生成器</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif}
@@ -13,7 +13,6 @@
     .header h1{color:#fff;font-size:28px;font-weight:700}
     .header p{color:#a0a0b8;font-size:14px;margin-top:6px}
     .header .emoji{font-size:40px;display:block;margin-bottom:8px}
-    .usage-badge{display:inline-block;background:rgba(255,255,255,0.1);padding:6px 14px;border-radius:20px;color:#f39c12;font-size:12px;margin-top:8px}
     .card{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:24px;backdrop-filter:blur(10px)}
     .card-title{color:#e0e0e0;font-size:16px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px}
     .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
@@ -52,7 +51,6 @@
     <span class="emoji">📄</span>
     <h1>AI 简历生成器</h1>
     <p>输入信息 · AI 自动生成专业简历 · 支持下载 PDF</p>
-    <div class="usage-badge" id="usageBadge">🆓 今日剩余：3次</div>
   </div>
 
   <div class="card">
@@ -87,136 +85,16 @@
       <div class="card-title" style="justify-content:space-between"><span>📝 简历预览</span></div>
       <div class="resume-preview" id="resumeContent"></div>
       <button class="btn-secondary" onclick="downloadPDF()">📄 下载 PDF</button>
-      <button class="btn-secondary" onclick="showPayPage()">💎 付费升级（无限次）</button>
       <button class="btn-secondary" onclick="window.location.reload()">🔄 重新生成</button>
     </div>
   </div>
 
-  <p class="tips">💡 免费每天3次 · 付费无限次 · v2.3<br>⚠️ 虚拟商品一经售出概不退款<br>📬 超过24小时未收到激活码，请B站私信「温柔陪伴」</p>
+  <p class="tips">💡 AI 生成内容仅供参考，请根据实际情况修改。</p>
 </div>
 
 <script>
-const API_URL = '/api/proxy';
-const FREE_LIMIT = 3;
-const STORAGE_KEY = 'resume_data_v2';
-
-function getData(){
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if(!raw) return { date: '', count: 0, paid: false, activationCode: '' };
-
-  let d;
-  try { d = JSON.parse(raw); } catch(e) { d = {}; }
-
-  const storedHash = d._hash || '';
-  const checkStr = (d.date||'') + (d.count||0) + (d.paid?'1':'0') + (d.activationCode||'');
-  const computedHash = btoa(checkStr).slice(0,8);
-  if(storedHash !== computedHash){
-    d = { date: '', count: 0, paid: false, activationCode: '' };
-  }
-
-  const today = new Date().toLocaleDateString();
-  if(d.date !== today) d = { date: today, count: 0, paid: d.paid || false, activationCode: d.activationCode || '' };
-
-  return d;
-}
-
-function saveData(d){
-  const checkStr = (d.date||'') + (d.count||0) + (d.paid?'1':'0') + (d.activationCode||'');
-  d._hash = btoa(checkStr).slice(0,8);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
-}
-
-function updateBadge(){
-  const d = getData();
-  const b = document.getElementById('usageBadge');
-  if(d.paid){ b.textContent = '💎 已付费 · 无限次'; b.style.color = '#2ecc71'; }
-  else {
-    const r = FREE_LIMIT - d.count;
-    b.textContent = r > 0 ? `🆓 今日剩余：${r}次` : '🆓 今日次数已用完';
-    if(r <= 0) b.style.color = '#e74c3c';
-  }
-}
-
-function checkQuota(){ const d = getData(); return d.paid || d.count < FREE_LIMIT; }
-
-function useQuota(){
-  const d = getData();
-  if(!d.paid){ d.count++; saveData(d); }
-  updateBadge();
-}
-
-let pendingCode = '';
-let verifyAttempts = 0;
-
-async function activatePaid(code, answer){
-  const c = (code || '').toUpperCase().trim();
-  const a = (answer || '').trim();
-
-  if(verifyAttempts >= 5){
-    alert('验证尝试次数过多，请刷新页面后重试');
-    return false;
-  }
-
-  try {
-    const res = await fetch(API_URL, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ type: 'activate', code: c, answer: a })
-    });
-    const data = await res.json();
-
-    if(data.valid){
-      verifyAttempts = 0;
-      const used = JSON.parse(localStorage.getItem('used_codes') || '[]');
-      if(used.includes(c)){ alert('此激活码已被使用'); return false; }
-      used.push(c); localStorage.setItem('used_codes', JSON.stringify(used));
-      const d = getData(); d.paid = true; d.activationCode = c; saveData(d); updateBadge();
-      alert('激活成功！无限次使用已解锁');
-      return true;
-    }
-
-    if(data.step === 2){
-      pendingCode = data.code;
-      showVerifyQuestion();
-      return false;
-    }
-
-    verifyAttempts++;
-    alert((data.message || '验证失败') + '（剩余尝试次数：' + (5-verifyAttempts) + '）');
-    return false;
-  } catch(e){
-    alert('网络错误，请检查网络后重试');
-    return false;
-  }
-}
-
-function showVerifyQuestion(){
-  const div = document.createElement('div');
-  div.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);z-index:10002;display:flex;align-items:center;justify-content:center';
-  div.innerHTML = `
-    <div style="background:#1a1a2e;border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:24px;width:90%;max-width:360px;text-align:center;position:relative">
-      <button style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:20px;cursor:pointer;color:#fff" onclick="this.parentElement.parentElement.remove()">✕</button>
-      <h3 style="color:#fff;margin-bottom:12px">验证问题</h3>
-      <p style="color:#f39c12;font-size:16px;font-weight:600;margin:8px 0">开发者的AI陪伴产品叫什么名字？</p>
-      <p style="color:#888;font-size:11px;margin-bottom:12px">提示：四个字</p>
-      <input type="text" id="verifyAnswer" placeholder="输入答案" maxlength="20" style="width:100%;padding:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:14px;text-align:center;outline:none;margin-bottom:8px">
-      <button class="btn-secondary" style="width:100%" onclick="handleVerifyAnswer(this)">确认</button>
-      <button class="btn-secondary" style="width:100%;margin-top:4px" onclick="this.parentElement.parentElement.remove()">取消</button>
-    </div>`;
-  document.body.appendChild(div);
-}
-
-async function handleVerifyAnswer(btn){
-  const answer = document.getElementById('verifyAnswer').value.trim();
-  if(!answer){ alert('请输入答案'); return; }
-  btn.disabled = true; btn.textContent = '验证中……';
-  const result = await activatePaid(pendingCode, answer);
-  if(result){
-    document.querySelectorAll('[style*="z-index:10001"], [style*="z-index:10002"]').forEach(el => el.remove());
-  } else {
-    btn.disabled = false; btn.textContent = '确认';
-  }
-}
+// 使用你的温柔陪伴 API 代理（无限制，免费）
+const API_URL = 'https://51ai-1.pages.dev/api/proxy';
 
 async function generateResume(){
   const name = document.getElementById('name').value.trim();
@@ -229,7 +107,6 @@ async function generateResume(){
   if(!name || !jobTarget || !email){ alert('请填写姓名、求职意向和邮箱'); return; }
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ alert('请输入有效的邮箱地址'); return; }
   if(!education || !school || !major){ alert('请填写完整的教育背景'); return; }
-  if(!checkQuota()){ alert('今日免费次数已用完，请付费升级'); showPayPage(); return; }
 
   const btn = document.getElementById('genBtn'), loading = document.getElementById('loading'), result = document.getElementById('result');
   btn.disabled = true; btn.textContent = '生成中……'; result.classList.remove('active'); loading.classList.add('active');
@@ -322,7 +199,7 @@ async function generateResume(){
     });
     resumeDiv.innerHTML = temp.innerHTML;
 
-    useQuota(); loading.classList.remove('active'); result.classList.add('active');
+    loading.classList.remove('active'); result.classList.add('active');
     result.scrollIntoView({ behavior:'smooth' });
   } catch(e){
     loading.classList.remove('active');
@@ -343,63 +220,6 @@ function downloadPDF(){
   const el = document.getElementById('resumeContent');
   html2pdf().set({ margin:[8,8,8,8], filename:'简历_'+(document.getElementById('name').value||'未命名')+'.pdf', image:{type:'jpeg',quality:0.98}, html2canvas:{scale:2}, jsPDF:{unit:'mm',format:'a4',orientation:'portrait'} }).from(el).save();
 }
-
-function showPayPage(){
-  const div = document.createElement('div');
-  div.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center';
-  div.innerHTML = `
-    <div style="background:#1a1a2e;border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:24px;width:90%;max-width:360px;text-align:center;position:relative">
-      <button style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:20px;cursor:pointer;color:#fff" onclick="this.parentElement.parentElement.remove()">✕</button>
-      <h3 style="color:#fff;margin-bottom:8px">付费升级</h3>
-      <p style="color:#f39c12;font-size:22px;font-weight:700">￥9.90 / 永久</p>
-      <p style="color:#a0a0b8;font-size:13px;margin:6px 0">解锁无限次AI简历生成 + PDF下载</p>
-      <div style="display:flex;gap:12px;justify-content:center;margin:12px 0">
-        <div style="text-align:center"><p style="color:#aaa;font-size:11px">支付宝</p><img src="https://i.ibb.co/0yFnTKS0/IMG-7071.jpg" style="width:130px;height:130px;object-fit:contain;background:#fff;border-radius:8px;padding:4px" alt="支付宝收款码"></div>
-        <div style="text-align:center"><p style="color:#aaa;font-size:11px">微信</p><img src="https://i.ibb.co/6KHXJx8/IMG-7069.jpg" style="width:130px;height:130px;object-fit:contain;background:#fff;border-radius:8px;padding:4px" alt="微信收款码"></div>
-      </div>
-      <p style="color:#e74c3c;font-size:11px;margin:4px 0">虚拟商品一经售出概不退款</p>
-      <p style="color:#fff;font-size:13px;margin:8px 0">付款后截屏发给 <span style="color:#2ecc71">wxid_xccoegiluvnr12</span> 获取激活码</p>
-      <p style="color:#888;font-size:11px;margin:4px 0">超过24小时未收到码，请B站私信「温柔陪伴」</p>
-      <p style="color:#a0a0b8;font-size:12px;margin:8px 0">已有激活码？</p>
-      <input type="text" id="activateCode" placeholder="输入激活码" maxlength="20" style="width:100%;padding:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:14px;text-align:center;outline:none;margin-bottom:8px">
-      <button class="btn-secondary" style="width:100%" onclick="activatePaid(document.getElementById('activateCode').value,'')">激活</button>
-      <button class="btn-secondary" style="width:100%;margin-top:4px" onclick="exportActivation()">导出激活</button>
-      <button class="btn-secondary" style="width:100%;margin-top:4px" onclick="importActivation()">导入激活</button>
-      <button class="btn-secondary" style="width:100%;margin-top:4px" onclick="this.parentElement.parentElement.remove()">关闭</button>
-    </div>`;
-  document.body.appendChild(div);
-}
-
-function exportActivation(){
-  const d = getData();
-  if(!d.paid){ alert('你还没有激活付费权限'); return; }
-  const exportData = { paid: true, time: Date.now(), sign: btoa('valid_' + Date.now()).slice(0,12) };
-  const blob = new Blob([JSON.stringify(exportData)], {type:'application/json'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = '简历生成器_激活备份.json'; a.click();
-  alert('备份文件有效期10分钟，请尽快导入新设备。');
-}
-
-function importActivation(){
-  const input = document.createElement('input'); input.type = 'file'; input.accept = '.json';
-  input.onchange = e => {
-    const f = e.target.files[0], r = new FileReader();
-    r.onload = ev => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        if(!data.time || Date.now()-data.time > 600000){ alert('备份文件已过期（超10分钟），请重新导出'); return; }
-        if(data.paid && data.sign && data.sign.startsWith('dmFsaWRf')){
-          const d = getData(); d.paid = true; saveData(d); updateBadge();
-          alert('已导入！');
-        } else { alert('文件格式不对'); }
-      } catch(e){ alert('文件格式不对'); }
-    };
-    r.readAsText(f);
-  };
-  input.click();
-}
-
-updateBadge();
 </script>
 </body>
 </html>
