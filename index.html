@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-  <title>AI 简历生成器 v2.5</title>
+  <title>AI 简历生成器 v3.0</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif}
@@ -35,23 +35,33 @@
     .loading-text{color:#a0a0b8;font-size:14px}
     .result{display:none}
     .result.active{display:block}
-    .result-panel{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:24px;color:#e0e0e0;line-height:1.8;font-size:14px;margin-bottom:16px}
-    .result-panel h2{color:#4a9eff;margin-bottom:12px;font-size:18px}
-    .result-panel h3{color:#6c5ce7;margin:12px 0 6px;font-size:15px}
-    .result-panel ul{padding-left:20px;margin:8px 0}
-    .result-panel li{margin:4px 0}
-    .result-panel .tag{display:inline-block;background:rgba(74,158,255,0.2);color:#4a9eff;padding:4px 10px;border-radius:12px;font-size:12px;margin:2px 4px}
-    .resume-preview{background:#fff;color:#222;padding:40px;border-radius:8px;line-height:1.8;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,0.3)}
-    .resume-preview h1{font-size:24px;text-align:center;margin-bottom:4px;color:#1a1a2e}
-    .resume-preview h2{font-size:16px;color:#1a5276;border-bottom:2px solid #1a5276;padding-bottom:4px;margin:16px 0 8px}
-    .resume-preview h3{font-size:14px;color:#1a1a2e;margin:8px 0 4px}
-    .resume-preview p{color:#333;margin:4px 0}
-    .resume-preview ul{padding-left:20px;margin:4px 0}
-    .resume-preview li{color:#333;margin:2px 0}
-    .resume-preview .contact-info{text-align:center;color:#555;font-size:13px;margin-bottom:16px}
-    .resume-preview .section{margin-bottom:12px}
+
+    /* 简历模板 - 控制PDF输出样式 */
+    .resume-template{
+      background:#fff;color:#1a1a1a;padding:48px 40px;font-family:"PingFang SC","Microsoft YaHei","Helvetica Neue",sans-serif;
+      line-height:1.6;font-size:14px;max-width:780px;margin:0 auto;
+    }
+    .resume-template .r-header{text-align:center;margin-bottom:20px;border-bottom:2px solid #1a5276;padding-bottom:16px}
+    .resume-template .r-header .r-name{font-size:26px;font-weight:700;color:#1a1a1a;margin-bottom:6px}
+    .resume-template .r-header .r-info{font-size:13px;color:#555}
+    .resume-template .r-section{margin-bottom:18px}
+    .resume-template .r-section h3{font-size:16px;color:#1a5276;border-bottom:1.5px solid #1a5276;padding-bottom:4px;margin-bottom:10px;font-weight:600}
+    .resume-template .r-section .r-item{margin-bottom:10px}
+    .resume-template .r-section .r-item .r-item-header{display:flex;justify-content:space-between;flex-wrap:wrap;margin-bottom:2px}
+    .resume-template .r-section .r-item .r-item-title{font-weight:600;color:#222}
+    .resume-template .r-section .r-item .r-item-sub{color:#666;font-size:13px}
+    .resume-template .r-section .r-item ul{margin:4px 0 0 18px;padding:0}
+    .resume-template .r-section .r-item li{margin:2px 0;font-size:13px;color:#444}
+    .resume-template .r-tags{display:flex;flex-wrap:wrap;gap:6px}
+    .resume-template .r-tag{background:#eef3f8;color:#1a5276;padding:4px 12px;border-radius:14px;font-size:12px}
+    .advice-panel{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:20px;color:#e0e0e0;line-height:1.7;font-size:14px;margin-bottom:16px}
+    .advice-panel h3{color:#4a9eff;margin:12px 0 6px}
+    .advice-panel ul{margin-left:18px}
+    .advice-panel li{margin:4px 0}
     .tips{color:#888;font-size:12px;text-align:center;margin-top:8px}
-    @media(max-width:600px){.form-grid{grid-template-columns:1fr}.header h1{font-size:22px}.resume-preview{padding:20px}}
+    .date-row{display:flex;gap:10px;align-items:center}
+    .date-row input{flex:1}
+    @media(max-width:600px){.form-grid{grid-template-columns:1fr}.header h1{font-size:22px}.resume-template{padding:20px 16px}}
   </style>
 </head>
 <body>
@@ -59,16 +69,17 @@
   <div class="header">
     <span class="emoji">📄</span>
     <h1>AI 简历生成器</h1>
-    <p>输入信息 → AI 深度分析 → 生成专业简历 → 下载 PDF</p>
+    <p>输入信息 → AI 分析 → 生成标准简历 → 下载 PDF</p>
+    <p style="color:#888;font-size:11px;margin-top:4px">你的信息仅用于本次生成，不会保存到服务器</p>
   </div>
 
   <div class="card">
     <div class="card-title">👤 基本信息</div>
     <div class="form-grid">
-      <div class="form-group"><label>姓名</label><input type="text" id="name" placeholder="如：张三" maxlength="20"></div>
+      <div class="form-group"><label>姓名（可用化名）</label><input type="text" id="name" placeholder="如：张三" maxlength="20"></div>
       <div class="form-group"><label>求职意向</label><input type="text" id="jobTarget" placeholder="如：前端开发工程师" maxlength="50"></div>
-      <div class="form-group"><label>手机（选填）</label><input type="text" id="phone" placeholder="如：138****1234" maxlength="15"></div>
-      <div class="form-group"><label>邮箱</label><input type="email" id="email" placeholder="如：zhangsan@example.com" maxlength="80"></div>
+      <div class="form-group"><label>手机（选填，仅本地使用）</label><input type="text" id="phone" placeholder="如：138****1234" maxlength="15"></div>
+      <div class="form-group"><label>邮箱（选填，仅本地使用）</label><input type="email" id="email" placeholder="如：zhangsan@example.com" maxlength="80"></div>
       <div class="form-group"><label>学历</label><select id="education"><option value="">请选择</option><option value="博士">博士</option><option value="硕士">硕士</option><option value="本科">本科</option><option value="大专">大专</option><option value="高中">高中</option></select></div>
       <div class="form-group"><label>毕业院校</label><input type="text" id="school" placeholder="如：清华大学" maxlength="40"></div>
       <div class="form-group"><label>专业</label><input type="text" id="major" placeholder="如：计算机科学与技术" maxlength="40"></div>
@@ -79,6 +90,7 @@
   <div class="card">
     <div class="card-title">💼 经历与技能</div>
     <div class="form-grid">
+      <div class="form-group full"><label>目标职位描述 JD（选填，粘贴招聘信息可提高匹配度）</label><textarea id="jobDesc" placeholder="粘贴目标岗位的职位描述……" maxlength="2000"></textarea></div>
       <div class="form-group full"><label>工作/实习经历</label><textarea id="workExp" placeholder="如：&#10;2024.06-2024.09 字节跳动 前端实习生&#10;负责抖音电商后台管理系统开发" maxlength="1000"></textarea></div>
       <div class="form-group full"><label>项目经历</label><textarea id="projects" placeholder="如：&#10;校园二手交易平台 独立开发&#10;使用Vue3+Node.js搭建，上线3个月用户2000+" maxlength="1000"></textarea></div>
       <div class="form-group full"><label>技能特长（逗号分隔）</label><input type="text" id="skills" placeholder="如：Python, JavaScript, React" maxlength="300"></div>
@@ -87,195 +99,297 @@
     <button class="btn-primary" id="genBtn" onclick="generateResume()">✨ 生成简历</button>
   </div>
 
-  <div class="loading" id="loading"><div class="spinner"></div><div class="loading-text" id="loadingText">AI 正在分析你的求职方向……</div></div>
+  <div class="loading" id="loading"><div class="spinner"></div><div class="loading-text">AI 正在生成简历……</div></div>
 
   <div class="result" id="result">
-    <div class="result-panel" id="advicePanel">
-      <h2>📊 求职分析与建议</h2>
+    <div class="advice-panel" id="advicePanel">
+      <h3>📊 求职分析</h3>
       <div id="adviceContent"></div>
     </div>
     <div class="card" style="margin-bottom:0">
-      <div class="card-title" style="justify-content:space-between"><span>📝 完整简历</span></div>
-      <div class="resume-preview" id="resumeContent"></div>
+      <div class="card-title" style="justify-content:space-between"><span>📝 简历预览</span><span style="font-size:12px;color:#888">可点击文字直接编辑</span></div>
+      <div class="resume-template" id="resumeContent" contenteditable="true"></div>
       <button class="btn-secondary" onclick="downloadPDF()">📄 下载 PDF</button>
       <button class="btn-secondary" onclick="window.location.reload()">🔄 重新生成</button>
     </div>
   </div>
 
-  <p class="tips">💡 AI 生成内容仅供参考，请根据实际情况修改。</p>
+  <p class="tips">💡 AI 生成内容仅供参考，请核实后投递。<br>📬 如有问题，请B站私信「七月七的猫」</p>
 </div>
 
 <script>
 const API_URL = 'https://51ai-1.pages.dev/api/proxy';
 
-async function generateResume(){
+function validateForm(){
   const name = document.getElementById('name').value.trim();
   const jobTarget = document.getElementById('jobTarget').value.trim();
-  const email = document.getElementById('email').value.trim();
   const education = document.getElementById('education').value;
   const school = document.getElementById('school').value.trim();
   const major = document.getElementById('major').value.trim();
+  if(!name || !jobTarget) return '请填写姓名和求职意向';
+  if(!education || !school || !major) return '请填写完整的教育背景';
+  const email = document.getElementById('email').value.trim();
+  if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return '邮箱格式不正确';
+  const gradYear = document.getElementById('gradYear').value.trim();
+  if(gradYear && !/^\d{4}$/.test(gradYear)) return '毕业年份请输入4位数字';
+  return null;
+}
 
-  if(!name || !jobTarget || !email){ alert('请填写姓名、求职意向和邮箱'); return; }
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ alert('请输入有效的邮箱地址'); return; }
-  if(!education || !school || !major){ alert('请填写完整的教育背景'); return; }
-
+async function generateResume(){
+  const err = validateForm(); if(err){ alert(err); return; }
   const btn = document.getElementById('genBtn'), loading = document.getElementById('loading'), result = document.getElementById('result');
   btn.disabled = true; btn.textContent = '生成中……'; result.classList.remove('active'); loading.classList.add('active');
 
   try {
-    const phone = document.getElementById('phone').value.trim();
+    const name = document.getElementById('name').value.trim();
+    const jobTarget = document.getElementById('jobTarget').value.trim();
+    const education = document.getElementById('education').value;
+    const school = document.getElementById('school').value.trim();
+    const major = document.getElementById('major').value.trim();
     const gradYear = document.getElementById('gradYear').value.trim();
     const workExp = document.getElementById('workExp').value.trim();
     const projects = document.getElementById('projects').value.trim();
     const skills = document.getElementById('skills').value.trim();
     const highlights = document.getElementById('highlights').value.trim();
+    const jobDesc = document.getElementById('jobDesc').value.trim();
 
-    if(gradYear && !/^\d{4}$/.test(gradYear)){ alert('毕业年份请输入4位数字'); loading.classList.remove('active'); btn.disabled = false; btn.textContent = '✨ 生成简历'; return; }
-    if(phone && !/^\d{3,15}$/.test(phone.replace(/[\s\-()]/g,''))){ alert('手机号格式不正确'); loading.classList.remove('active'); btn.disabled = false; btn.textContent = '✨ 生成简历'; return; }
+    // 个人信息本地保存，不发送给AI
+    const userContact = { name, phone: document.getElementById('phone').value.trim(), email: document.getElementById('email').value.trim() };
 
-    const eduText = `${education} | ${school} | ${major} | ${gradYear}年毕业`;
-    const userProfile = `姓名：${name}
-求职意向：${jobTarget}
-学历：${eduText}
+    const userProfile = `求职意向：${jobTarget}
+学历：${education} | ${school} | ${major} | ${gradYear}年毕业
 工作/实习经历：${workExp || '无'}
 项目经历：${projects || '无'}
 技能：${skills || '无'}
-其他亮点：${highlights || '无'}`;
+其他亮点：${highlights || '无'}${jobDesc ? '\n\n目标职位描述（JD）：\n' + jobDesc : ''}`;
 
-    document.getElementById('loadingText').textContent = 'AI 正在分析你的求职方向……';
-    const advicePrompt = `你是资深职业规划师和HR总监。请根据以下求职者信息，生成一份详细的求职分析与建议报告。
+    // ===== 求职分析 =====
+    const advicePrompt = `你是资深职业规划师。请根据以下求职者信息给出简洁的求职分析。不要重复用户信息，直接给建议。
 
 ${userProfile}
 
-请输出以下内容（使用HTML格式，用<div>包裹，不要DO<!DOCTYPE和<body>标签）：
+请用简洁的文字输出：
+1. 求职方向建议（1-2句）
+2. 简历优化重点（2-3个具体建议）
+3. 投递方向建议（1-2句）
+4. 面试可能被问的问题（2-3个）
 
-🎯 求职方向定位：分析该求职者在目标岗位上的优势和短板，建议1-2个最适合的细分方向。
-
-📈 竞争力分析：根据ta的教育背景、经历、技能，评估在当前校招/社招市场中的竞争力水平，并说明理由。
-
-💡 简历优化重点：根据STAR法则，指出ta的经历中哪些点值得重点展开、哪些需要弱化。给出具体的改写建议。
-
-🏢 推荐投递方向：根据ta的背景，推荐3-5类适合的公司或岗位类型，并简要说明理由。
-
-⚠️ 面试准备提醒：预测面试官可能会挑战的3个问题，并给出应对思路。
-
-请用口语化、直接有用的方式写，不要空洞的套话。每个建议都要具体、可操作。`;
+不要用Markdown，用纯文本+换行。每个建议都要具体、可操作。`;
 
     const adviceRes = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'deepseek-v4-flash',
-        messages: [
-          { role: 'system', content: advicePrompt },
-          { role: 'user', content: `请为这位求职者生成详细的求职分析与建议。` }
-        ],
-        temperature: 0.7,
-        max_tokens: 1500,
-        stream: true
-      })
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'deepseek-v4-flash', messages: [{ role: 'system', content: advicePrompt }, { role: 'user', content: '请给出求职分析。' }], temperature: 0.7, max_tokens: 800, stream: true })
     });
+    if (!adviceRes.ok) throw new Error('分析生成失败');
+    const adviceText = await readStream(adviceRes);
+    document.getElementById('adviceContent').innerHTML = formatAdvice(adviceText);
 
-    if (!adviceRes.ok) throw new Error('求职建议生成失败');
-    const adviceContent = await readStream(adviceRes);
-    document.getElementById('adviceContent').innerHTML = adviceContent;
-
-    document.getElementById('loadingText').textContent = 'AI 正在生成专业简历……';
-    const resumePrompt = `你是资深HR和简历撰写专家。请根据以下求职者信息，生成一份完整、专业、结构清晰的HTML格式简历。
+    // ===== 简历生成 =====
+    const resumePrompt = `你是资深HR和简历撰写专家。请根据以下信息生成简历内容。用户信息中可能包含JD，请参照JD优化简历重点。
 
 ${userProfile}
 
-【简历结构要求】严格按照以下结构生成：
-1. 头部：姓名（居中，大号字体）、求职意向、联系方式（手机、邮箱）
-2. 教育背景：学校、专业、学历、毕业年份
-3. 工作/实习经历：每段经历用STAR法则展开（情境、任务、行动、结果），突出量化成果
-4. 项目经历：每个项目包含项目名称、你的角色、技术栈、关键成果
-5. 技能特长：用标签形式展示，按熟练程度排列
-6. 其他：获奖、证书、语言能力等
+【输出格式要求】
+请严格按照以下结构输出，每个部分用###标题标记。只输出纯文本内容，不要任何HTML标签、CSS、Markdown格式。
 
-【格式要求】
-- 使用HTML标签，不要用Markdown
-- 整体风格专业、简洁，适合A4纸打印
-- 配色以深蓝/黑色为主，白色背景，所有文字必须是深色（#222或#333），确保清晰可读
-- 不要写"优秀""良好"等空洞形容词，用具体数据代替
-- 如果某项内容为空，直接跳过该板块
-- 输出完整HTML（从<div>开始），不要DO<!DOCTYPE和<body>标签`;
+###教育背景
+学校、专业、学历、毕业年份。一行即可。
+
+###工作经历
+每段经历格式：
+【公司/职位】时间
+- 做了什么（用STAR法则描述）
+- 取得的成果
+
+###项目经历
+每个项目格式：
+【项目名称】你的角色
+- 项目简介（一句话）
+- 你的贡献
+- 技术栈（如果有）
+
+###技能
+用逗号分隔的技能列表，按熟练程度排序。
+
+###其他
+获奖、证书、语言能力等。如无则写“无”。
+
+【重要约束】
+1. 绝对不要编造用户没有提到的数字、百分比、用户数、技术栈
+2. 如果用户没有给出具体量化数据，使用“显著”“核心”“独立负责”等定性描述
+3. 不要添加用户未提及的项目、经历、技能、证书
+4. 每个bullet point不要超过一行`;
 
     const resumeRes = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'deepseek-v4-flash',
-        messages: [
-          { role: 'system', content: resumePrompt },
-          { role: 'user', content: `请为${name}生成一份求职【${jobTarget}】的完整专业简历。联系方式：${phone || ''} | ${email}` }
-        ],
-        temperature: 0.5,
-        max_tokens: 2500,
-        stream: true
-      })
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'deepseek-v4-flash', messages: [{ role: 'system', content: resumePrompt }, { role: 'user', content: '请生成简历内容。' }], temperature: 0.5, max_tokens: 1500, stream: true })
     });
-
     if (!resumeRes.ok) throw new Error('简历生成失败');
-    const resumeContent = await readStream(resumeRes);
+    const resumeText = await readStream(resumeRes);
 
-    const resumeDiv = document.getElementById('resumeContent');
-    resumeDiv.innerHTML = '';
-    const temp = document.createElement('div');
-    temp.innerHTML = resumeContent;
-    temp.querySelectorAll('script').forEach(s => s.remove());
-    temp.querySelectorAll('*').forEach(el => {
-      Array.from(el.attributes).forEach(attr => {
-        if (attr.name.startsWith('on')) el.removeAttribute(attr.name);
-      });
-    });
-    resumeDiv.innerHTML = temp.innerHTML;
+    // 前端套模板
+    const resumeHTML = buildResumeTemplate(userContact, jobTarget, resumeText);
+    document.getElementById('resumeContent').innerHTML = resumeHTML;
 
     loading.classList.remove('active'); result.classList.add('active');
     result.scrollIntoView({ behavior:'smooth' });
   } catch(e){
     loading.classList.remove('active');
-    if(e.name === 'AbortError'){
-      alert('请求超时，AI接口响应较慢，请稍后再试');
-    } else if(e.message.includes('生成失败')) {
-      alert(e.message + '，请稍后再试。如多次失败请截图联系开发者。');
-    } else {
-      alert('生成失败，请检查网络后重试。如多次失败请截图联系开发者。');
+    if(e.name === 'AbortError') alert('请求超时，请稍后再试');
+    else alert('生成失败：' + (e.message || '网络错误'));
+  }
+  finally { btn.disabled = false; btn.textContent = '✨ 重新生成'; }
+}
+
+// 前端组装简历模板
+function buildResumeTemplate(contact, jobTarget, aiContent){
+  const phone = contact.phone || '';
+  const email = contact.email || '';
+
+  // 解析AI返回的各部分
+  const sections = {};
+  const parts = aiContent.split(/###\s*/);
+  parts.forEach(part => {
+    const lines = part.trim().split('\n');
+    const title = lines[0].trim();
+    const content = lines.slice(1).join('\n').trim();
+    if(title) sections[title] = content;
+  });
+
+  // 技能标签
+  const skillsRaw = (sections['技能'] || '').replace(/[、，,]/g, ',').split(',').filter(s => s.trim());
+  const skillsHTML = skillsRaw.length > 0
+    ? skillsRaw.map(s => `<span class="r-tag">${s.trim()}</span>`).join('')
+    : '<span class="r-tag">待补充</span>';
+
+  // 工作经历
+  const workHTML = formatBulletSection(sections['工作经历'] || sections['工作/实习经历'] || '');
+
+  // 项目经历
+  const projHTML = formatBulletSection(sections['项目经历'] || '');
+
+  // 其他
+  const otherText = (sections['其他'] || sections['其他亮点'] || '').replace('无','').trim();
+  const otherHTML = otherText ? formatBulletSection(otherText) : '';
+
+  return `
+    <div class="r-header">
+      <div class="r-name">${escapeHTML(contact.name)}</div>
+      <div class="r-info">求职意向：${escapeHTML(jobTarget)}${phone ? ' | ' + escapeHTML(phone) : ''}${email ? ' | ' + escapeHTML(email) : ''}</div>
+    </div>
+
+    <div class="r-section">
+      <h3>教育背景</h3>
+      <p style="margin:0">${escapeHTML(sections['教育背景'] || '')}</p>
+    </div>
+
+    ${workHTML ? `
+    <div class="r-section">
+      <h3>工作经历</h3>
+      ${workHTML}
+    </div>` : ''}
+
+    ${projHTML ? `
+    <div class="r-section">
+      <h3>项目经历</h3>
+      ${projHTML}
+    </div>` : ''}
+
+    <div class="r-section">
+      <h3>技能</h3>
+      <div class="r-tags">${skillsHTML}</div>
+    </div>
+
+    ${otherHTML ? `
+    <div class="r-section">
+      <h3>其他</h3>
+      ${otherHTML}
+    </div>` : ''}
+  `;
+}
+
+function formatBulletSection(text){
+  if(!text || text === '无') return '';
+  const lines = text.split('\n').filter(l => l.trim());
+  let html = '';
+  let currentItem = '';
+  let inBullet = false;
+
+  for(const line of lines){
+    const trimmed = line.trim();
+    if(trimmed.startsWith('【') && trimmed.includes('】')){
+      if(currentItem) html += `</div>`;
+      const match = trimmed.match(/【(.+?)】\s*(.*)/);
+      if(match){
+        html += `<div class="r-item"><div class="r-item-header"><span class="r-item-title">${escapeHTML(match[1])}</span>`;
+        if(match[2]) html += `<span class="r-item-sub">${escapeHTML(match[2])}</span>`;
+        html += `</div>`;
+        currentItem = 'open';
+        inBullet = false;
+      }
+    } else if(trimmed.startsWith('-') || trimmed.startsWith('•')){
+      if(!inBullet){ html += '<ul>'; inBullet = true; }
+      html += `<li>${escapeHTML(trimmed.replace(/^[-•]\s*/, ''))}</li>`;
+    } else if(trimmed){
+      if(inBullet){ html += '</ul>'; inBullet = false; }
+      html += `<p style="margin:2px 0;font-size:13px;color:#444">${escapeHTML(trimmed)}</p>`;
     }
   }
-  finally { btn.disabled = false; btn.textContent = '✨ 生成简历'; }
+  if(inBullet) html += '</ul>';
+  if(currentItem) html += `</div>`;
+  return html;
+}
+
+function formatAdvice(text){
+  let html = '';
+  const lines = text.split('\n');
+  let inList = false;
+  for(const line of lines){
+    const trimmed = line.trim();
+    if(!trimmed) continue;
+    if(/^\d+[\.\、\)]/.test(trimmed) || trimmed.startsWith('-') || trimmed.startsWith('•')){
+      if(!inList){ html += '<ul>'; inList = true; }
+      html += `<li>${escapeHTML(trimmed.replace(/^\d+[\.\、\)]\s*|- |• /, ''))}</li>`;
+    } else {
+      if(inList){ html += '</ul>'; inList = false; }
+      html += `<p style="margin:4px 0">${escapeHTML(trimmed)}</p>`;
+    }
+  }
+  if(inList) html += '</ul>';
+  return html;
+}
+
+function escapeHTML(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
 }
 
 async function readStream(response) {
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
-  let fullContent = '';
-  let buf = '';
-
-  while (true) {
+  let full = '', buf = '';
+  while(true){
     const { done, value } = await reader.read();
-    if (done) break;
+    if(done) break;
     buf += decoder.decode(value, { stream: true });
     const lines = buf.split('\n');
     buf = lines.pop() || '';
-    for (const line of lines) {
+    for(const line of lines){
       const t = line.trim();
-      if (!t || t === 'data: [DONE]') continue;
-      if (!t.startsWith('data: ')) continue;
-      try {
-        const d = JSON.parse(t.slice(6));
-        const delta = d.choices?.[0]?.delta?.content;
-        if (delta) fullContent += delta;
-      } catch (e) {}
+      if(!t || t === 'data: [DONE]') continue;
+      if(!t.startsWith('data: ')) continue;
+      try { const d = JSON.parse(t.slice(6)); const delta = d.choices?.[0]?.delta?.content; if(delta) full += delta; } catch(e){}
     }
   }
-  return fullContent;
+  return full;
 }
 
 function downloadPDF(){
   const el = document.getElementById('resumeContent');
-  html2pdf().set({ margin:[8,8,8,8], filename:'简历_'+(document.getElementById('name').value||'未命名')+'.pdf', image:{type:'jpeg',quality:0.98}, html2canvas:{scale:2}, jsPDF:{unit:'mm',format:'a4',orientation:'portrait'} }).from(el).save();
+  // 下载前去掉contenteditable属性，保证PDF整洁
+  el.removeAttribute('contenteditable');
+  html2pdf().set({ margin:[8,8,8,8], filename:'简历_'+(document.getElementById('name').value||'未命名')+'.pdf', image:{type:'jpeg',quality:0.98}, html2canvas:{scale:2}, jsPDF:{unit:'mm',format:'a4',orientation:'portrait'} }).from(el).save().then(()=>{ el.setAttribute('contenteditable','true'); });
 }
 </script>
 </body>
